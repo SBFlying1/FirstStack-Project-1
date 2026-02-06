@@ -7,10 +7,29 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
+require('dotenv').config();
 const {setGlobalOptions} = require("firebase-functions");
 const {onRequest} = require("firebase-functions/https");
 const logger = require("firebase-functions/logger");
 const Alexa = require('ask-sdk-core');
+const {onSchedule} = require("firebase-functions/v2/scheduler");
+
+const admin = require('firebase-admin');
+const firebaseConfig = {
+  apiKey: process.env.APIKEY,
+  authDomain: process.env.AUTHDOMAIN,
+  projectId: process.env.PROJECTID,
+  storageBucket: process.env.STORAGEBUCKET,
+  messagingSenderId: process.env.MESSAGINGSENDERID,
+  appId: process.env.APPID,
+};
+
+admin.initializeApp(firebaseConfig);
+const db = admin.firestore();
+
+const axios = require('axios');
+const params = {}
+const docRef = db.collection('Pictures').doc('Cat');
 
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
@@ -104,4 +123,16 @@ exports.alexaSkill = onRequest(async (request, response) => {
         console.error(error);
         response.status(500).send('Error processing the Alexa request');
     }
+});
+
+exports.pubsub = onSchedule("* * * * *", async (event) => {
+    await axios.get('https://cataas.com', {params})
+        .then(response => {
+            const apiResponse = response.data;
+            docRef.set({
+                current: apiResponse,
+            })
+        }).catch(error => {
+            console.log(error);
+        });
 });
